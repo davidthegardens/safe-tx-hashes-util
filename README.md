@@ -142,6 +142,13 @@ DEBUG=true ./safe_hashes.sh ...
 
 This will print each command before it is executed, which is helpful when troubleshooting.
 
+> [!TIP]
+> You can maintain a list of trusted addresses by creating a file named addresses.json in you cwd.
+You can get started by running this command to create the first entry in the correct format.
+```console 
+ echo '{\n\t"0x0000000000000000000000000000000000000000":"null address"\n}' > addresses.json
+```
+
 The colour output is auto-detected and can be controlled with:
 
 - [`NO_COLOR=true`](https://no-color.org) — disables all colours,

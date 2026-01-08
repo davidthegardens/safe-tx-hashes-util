@@ -442,6 +442,45 @@ print_field() {
 	fi
 }
 
+# Utility function to format addresses, adding the address name if address_book_path is not ""
+format_address() {
+	local address_book_path="./addresses.json"
+
+	# Check if addresses.json exists
+	if [ ! -f "./addresses.json" ]; then
+		echo "$1"
+		exit 0
+	fi
+
+	if jq -e --arg addr "$1" 'has($addr)' "$address_book_path" >/dev/null; then
+		local name=$(jq -r --arg addr "$1" '.[$addr]' "$address_book_path")
+		echo "${RESET}$1 ${GREEN}[$name]"
+		exit 0
+	else
+		echo "${RESET}$1 ${BOLD}${YELLOW}[unknown address]"
+		exit 0
+	fi
+}
+
+format_parameters() {
+	if [ ! -f "./addresses.json" ]; then
+		echo "$1"
+		exit 0
+	fi
+	local parameters=$1
+	local formatted_parameters=$parameters
+
+	addresses=$(echo "$parameters" | jq -r '.[] | select(.type == "address") | .value')
+	for addr in $addresses; do
+		formatted=$(format_address "$addr")
+		formatted_parameters=$(echo "$formatted_parameters" | jq --arg old "$addr" --arg new "$formatted${GREEN}" '
+			map(if .type == "address" and .value == $old then .value = $new else . end)
+			')
+	done
+
+	echo -e "$formatted_parameters"
+}
+
 # Utility function to print the transaction data.
 print_transaction_data() {
 	local address="$1"
@@ -458,8 +497,8 @@ print_transaction_data() {
 	local message="${12}"
 
 	print_header "Transaction Data"
-	print_field "Multisig address" "$address"
-	print_field "To" "$to"
+	print_field "Multisig address" "$(format_address "$address")"
+	print_field "To" "$(format_address "$to")"
 	print_field "Value" "$value"
 	print_field "Data" "$data"
 	case "$operation" in
@@ -480,8 +519,8 @@ print_transaction_data() {
 	print_field "Safe Transaction Gas" "$safe_tx_gas"
 	print_field "Base Gas" "$base_gas"
 	print_field "Gas Price" "$gas_price"
-	print_field "Gas Token" "$gas_token"
-	print_field "Refund Receiver" "$refund_receiver"
+	print_field "Gas Token" "$(format_address "$gas_token")"
+	print_field "Refund Receiver" "$(format_address "$refund_receiver")"
 	print_field "Nonce" "$nonce"
 	print_field "Encoded message" "$message"
 }
@@ -508,8 +547,8 @@ print_hash_info() {
 
 # Utility function to print the ABI-decoded transaction data.
 print_decoded_data() {
-	local address="$1"
-	local to="$2"
+	local address="$(format_address "$1")"
+	local to="$(format_address "$2")"
 	local value="$3"
 	local data="$4"
 	local data_decoded="$5"
@@ -543,7 +582,7 @@ print_decoded_data() {
 		local parameters=$(echo "$data_decoded" | jq -r ".parameters")
 
 		print_field "Method" "$method"
-		print_field "Parameters" "$parameters"
+		print_field "Parameters" "$(format_parameters "$parameters")"
 
 		# Check if the called function is sensitive and print a warning in bold.
 		case "$method" in
@@ -1160,6 +1199,7 @@ calculate_safe_hashes() {
 	local message_file=""
 	local interactive=""
 	local rpc_url=""
+	local address_book_path=""
 
 	# Parse the command line arguments.
 	# Please note that `--help`, `--version`, and `--list-networks` can be used
